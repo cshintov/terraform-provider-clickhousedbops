@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/pingcap/errors"
@@ -21,11 +23,12 @@ type httpClient struct {
 }
 
 type HTTPClientConfig struct {
-	Protocol  string
-	Host      string
-	Port      uint16
-	BasicAuth *BasicAuth
-	TLSConfig *tls.Config
+	Protocol    string
+	Host        string
+	Port        uint16
+	BasicAuth   *BasicAuth
+	TLSConfig   *tls.Config
+	DialTimeout time.Duration
 }
 
 func NewHTTPClient(config HTTPClientConfig) (ClickhouseClient, error) {
@@ -69,6 +72,9 @@ func NewHTTPClient(config HTTPClientConfig) (ClickhouseClient, error) {
 		client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: config.TLSConfig,
+				DialContext: (&net.Dialer{
+					Timeout: config.DialTimeout,
+				}).DialContext,
 			},
 		},
 	}, nil

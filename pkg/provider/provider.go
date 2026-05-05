@@ -115,6 +115,11 @@ func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp 
 				Optional:    true,
 				Description: "TLS configuration options",
 			},
+
+			"dial_timeout": schema.StringAttribute{
+				Optional:    true,
+				Description: "Timeout duration for establishing connections to ClickHouse (e.g., \"120s\", \"5m\"). Defaults to the ClickHouse client library default if not specified.",
+			},
 			"read_after_write_timeout": schema.Int64Attribute{
 				Optional:    true,
 				Description: "Timeout in seconds for read-after-write verification of created resources. ClickHouse Cloud services with multiple replicas may need higher values due to replication lag. Defaults to 30.",
@@ -139,6 +144,18 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	if data.Host.IsUnknown() || data.Protocol.IsUnknown() || data.Port.IsUnknown() || data.AuthConfig.Strategy.IsUnknown() || data.AuthConfig.Username.IsUnknown() {
 		// We don't know the service data yet.
 		return
+	}
+
+	var dialTimeout time.Duration
+	if !data.DialTimeout.IsNull() {
+		dialTimeout, err = time.ParseDuration(data.DialTimeout.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"invalid configuration",
+				fmt.Sprintf("invalid dial_timeout value %q: must be a valid duration (e.g., '120s', '5m'): %v", data.DialTimeout.ValueString(), err),
+			)
+			return
+		}
 	}
 
 	var clickhouseClient clickhouseclient.ClickhouseClient
@@ -203,6 +220,7 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 				Port:             port,
 				UserPasswordAuth: auth,
 				TLSConfig:        nativeTLSConfig,
+				DialTimeout:      dialTimeout,
 			})
 		case protocolHTTP:
 			fallthrough
@@ -261,11 +279,12 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 			}
 
 			config := clickhouseclient.HTTPClientConfig{
-				Protocol:  protocol,
-				Host:      data.Host.ValueString(),
-				Port:      port,
-				BasicAuth: auth,
-				TLSConfig: tlsConfig,
+				Protocol:    protocol,
+				Host:        data.Host.ValueString(),
+				Port:        port,
+				BasicAuth:   auth,
+				TLSConfig:   tlsConfig,
+				DialTimeout: dialTimeout,
 			}
 
 			clickhouseClient, err = clickhouseclient.NewHTTPClient(config)
