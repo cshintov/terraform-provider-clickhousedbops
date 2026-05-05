@@ -49,6 +49,7 @@ provider "clickhousedbops" {
 
 ### Optional
 
+- `dial_timeout` (String) Timeout duration for establishing connections to ClickHouse (e.g., "120s", "5m"). Defaults to the ClickHouse client library default if not specified.
 - `read_after_write_timeout` (Number) Timeout in seconds for read-after-write verification of created resources. ClickHouse Cloud services with multiple replicas may need higher values due to replication lag. Defaults to 30.
 - `tls_config` (Attributes) TLS configuration options (see [below for nested schema](#nestedatt--tls_config))
 
